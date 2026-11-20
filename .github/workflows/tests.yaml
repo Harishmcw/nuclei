@@ -41,7 +41,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, windows-11-arm, macOS-latest]
     runs-on: "${{ matrix.os }}"
     steps:
       - uses: actions/checkout@v7.0.1
@@ -60,7 +60,7 @@ jobs:
         env:
           PDCP_API_KEY: "${{ secrets.PDCP_API_KEY }}"
       - run: go run -race . -l ${{ github.workspace }}/internal/tests/functional/testdata/targets.txt -id tech-detect,tls-version
-        if: ${{ matrix.os != 'windows-latest' }} # known issue: https://github.com/golang/go/issues/46099
+        if: ${{ !startsWith(matrix.os, 'windows') }} # known issue: https://github.com/golang/go/issues/46099
         working-directory: cmd/nuclei/
       # Hermetic HTTP-engine scale regression: stands up many loopback hosts and
       # asserts finding parity across a diverse template set (per-host pool,
@@ -104,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, windows-11-arm, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -116,7 +116,7 @@ jobs:
       # windows than on linux for the same work; Defender scanning an executable
       # on every launch is the leading suspect for the difference.
       - name: Exclude the workspace from Defender scanning
-        if: ${{ matrix.os == 'windows-latest' }}
+        if: ${{ startsWith(matrix.os, 'windows') }}
         shell: pwsh
         run: |
           Add-MpPreference -ExclusionPath "${{ github.workspace }}"
@@ -136,7 +136,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macOS-latest]
+        os: [ubuntu-latest, windows-latest, windows-11-arm, macOS-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7.0.1
@@ -144,9 +144,13 @@ jobs:
       - uses: projectdiscovery/actions/setup/go@v1
       - uses: projectdiscovery/nuclei-action/cache@v3
       - uses: projectdiscovery/nuclei-action@v3
+        if: ${{ matrix.os != 'windows-11-arm' }}
         with:
           version: latest
           install-only: true
+      # no windows_arm64 release asset is published yet; build the latest release instead
+      - run: go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+        if: ${{ matrix.os == 'windows-11-arm' }}
       - run: make functional
 
   validate:
